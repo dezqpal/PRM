@@ -1,0 +1,133 @@
+local Library = {}
+
+function Library:CreateWindow(hubName)
+    local ScreenGui = Instance.new("ScreenGui")
+    ScreenGui.Name = "PRM_Hub_Gui"
+    ScreenGui.Parent = game:GetService("CoreGui")
+    ScreenGui.ResetOnSpawn = false
+
+    -- Main Window
+    local MainFrame = Instance.new("Frame")
+    MainFrame.Name = "MainFrame"
+    MainFrame.Parent = ScreenGui
+    MainFrame.BackgroundColor3 = Color3.fromRGB(0, 0, 0) -- FULL BLACK
+    MainFrame.BorderSizePixel = 0
+    MainFrame.Position = UDim2.new(0.5, -225, 0.5, -150)
+    MainFrame.Size = UDim2.new(0, 450, 0, 300)
+    MainFrame.Active = true
+    MainFrame.Draggable = true -- Pwedeng i-drag sa mobile
+
+    local UICorner = Instance.new("UICorner", MainFrame)
+    UICorner.CornerRadius = UDim.new(0, 8)
+
+    -- Top Bar
+    local TopBar = Instance.new("Frame")
+    TopBar.Name = "TopBar"
+    TopBar.Parent = MainFrame
+    TopBar.BackgroundColor3 = Color3.fromRGB(25, 25, 25) -- Dark Gray Top Bar
+    TopBar.Size = UDim2.new(1, 0, 0, 40)
+    TopBar.BorderSizePixel = 0
+
+    local TopCorner = Instance.new("UICorner", TopBar)
+    TopCorner.CornerRadius = UDim.new(0, 8)
+
+    -- PRM LOGO
+    local Logo = Instance.new("ImageLabel")
+    Logo.Name = "PRMLogo"
+    Logo.Parent = TopBar
+    Logo.BackgroundTransparency = 1
+    Logo.Position = UDim2.new(0, 8, 0, 5)
+    Logo.Size = UDim2.new(0, 30, 0, 30)
+    Logo.Image = "rbxassetid://110244787030485" -- IYONG ASSET ID
+
+    -- Hub Title
+    local Title = Instance.new("TextLabel")
+    Title.Parent = TopBar
+    Title.Text = hubName or "PRM HUB | PRIVATE"
+    Title.Position = UDim2.new(0, 45, 0, 0)
+    Title.Size = UDim2.new(1, -50, 1, 0)
+    Title.BackgroundTransparency = 1
+    Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+    Title.TextXAlignment = Enum.TextXAlignment.Left
+    Title.Font = Enum.Font.GothamBold
+    Title.TextSize = 16
+
+    -- Sidebar (Para sa Tabs)
+    local Sidebar = Instance.new("ScrollingFrame")
+    Sidebar.Name = "Sidebar"
+    Sidebar.Parent = MainFrame
+    Sidebar.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+    Sidebar.Position = UDim2.new(0, 5, 0, 45)
+    Sidebar.Size = UDim2.new(0, 120, 1, -55)
+    Sidebar.ScrollBarThickness = 2
+    Sidebar.BorderSizePixel = 0
+
+    local SideLayout = Instance.new("UIListLayout", Sidebar)
+    SideLayout.Padding = UDim.new(0, 5)
+
+    -- Content Area (Dito lalabas ang buttons)
+    local ContentHolder = Instance.new("Frame")
+    ContentHolder.Name = "ContentHolder"
+    ContentHolder.Parent = MainFrame
+    ContentHolder.Position = UDim2.new(0, 130, 0, 45)
+    ContentHolder.Size = UDim2.new(1, -135, 1, -55)
+    ContentHolder.BackgroundTransparency = 1
+
+    local LibraryFunctions = {}
+
+    function LibraryFunctions:AddTab(tabName)
+        local TabContent = Instance.new("ScrollingFrame")
+        TabContent.Name = tabName .. "Content"
+        TabContent.Parent = ContentHolder
+        TabContent.Size = UDim2.new(1, 0, 1, 0)
+        TabContent.BackgroundTransparency = 1
+        TabContent.Visible = false
+        TabContent.ScrollBarThickness = 2
+
+        local ContentLayout = Instance.new("UIListLayout", TabContent)
+        ContentLayout.Padding = UDim.new(0, 5)
+
+        -- Tab Button sa Sidebar
+        local TabBtn = Instance.new("TextButton")
+        TabBtn.Parent = Sidebar
+        TabBtn.Size = UDim2.new(1, -5, 0, 30)
+        TabBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+        TabBtn.Text = tabName
+        TabBtn.TextColor3 = Color3.fromRGB(200, 200, 200)
+        TabBtn.Font = Enum.Font.Gotham
+
+        local BtnCorner = Instance.new("UICorner", TabBtn)
+        
+        TabBtn.MouseButton1Click:Connect(function()
+            for _, v in pairs(ContentHolder:GetChildren()) do
+                if v:IsA("ScrollingFrame") then v.Visible = false end
+            end
+            TabContent.Visible = true
+        end)
+
+        -- Function para mag-add ng Button sa loob ng Tab
+        local TabFunctions = {}
+        function TabFunctions:AddButton(btnText, callback)
+            local ActionBtn = Instance.new("TextButton")
+            ActionBtn.Parent = TabContent
+            ActionBtn.Size = UDim2.new(1, -10, 0, 35)
+            ActionBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+            ActionBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+            ActionBtn.Text = btnText
+            ActionBtn.Font = Enum.Font.GothamSemibold
+            ActionBtn.TextSize = 14
+
+            local ActCorner = Instance.new("UICorner", ActionBtn)
+
+            ActionBtn.MouseButton1Click:Connect(function()
+                callback()
+            end)
+        end
+
+        return TabFunctions
+    end
+
+    return LibraryFunctions
+end
+
+return Library
