@@ -1,0 +1,1491 @@
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local VirtualUser = game:GetService("VirtualUser")
+
+local Player = Players.LocalPlayer
+local displayName = Player.DisplayName
+local antiAFKConnection
+local ChocolateEatEvent = ReplicatedStorage.RemotesEvent.ChocolateEatEvent
+
+local function getGreeting()
+    local hour = os.date("*t").hour
+    if hour >= 5 and hour < 12 then return "Good Morning"
+    elseif hour >= 12 and hour < 18 then return "Good Afternoon"
+    elseif hour >= 18 and hour < 24 then return "Good Evening"
+    else return "Good Night" end
+end
+
+local function formatNumber(n)
+    n = tonumber(n) or 0
+    if n >= 1e18 then return string.format("%.1fQi", n/1e18)
+    elseif n >= 1e15 then return string.format("%.1fQa", n/1e15)
+    elseif n >= 1e12 then return string.format("%.1fT", n/1e12)
+    elseif n >= 1e9 then return string.format("%.1fB", n/1e9)
+    elseif n >= 1e6 then return string.format("%.1fM", n/1e6)
+    elseif n >= 1e3 then return string.format("%.1fK", n/1e3)
+    else return tostring(math.floor(n)) end
+end
+
+local function AbbrevNumber(num)
+    num = tonumber(num) or 0
+    if num <= 0 then return "0" end
+    local abbrev = {"", "K", "M", "B", "T", "Qa", "Qi"}
+    local i = 1
+    while num >= 1000 and i < #abbrev do
+        num = num / 1000
+        i = i + 1
+    end
+    return string.format("%.2f%s", num, abbrev[i])
+end
+
+local library = loadstring(game:HttpGet("https://raw.githubusercontent.com/memejames/elerium-v2-ui-library//main/Library", true))()
+
+local window, windowFrame = library:AddWindow("Natoy HuB | Muscle Masters", {
+    title_bar = {
+        Color3.fromRGB(0, 0, 0),       -- Black
+        Color3.fromRGB(139, 0, 0),     -- Dark Red
+        Color3.fromRGB(128, 128, 128), -- Gray
+        Color3.fromRGB(60, 0, 0),      -- Deep Dark Red
+        Color3.fromRGB(50, 50, 50)     -- Dark Gray
+    },
+    background = {
+        Color3.fromRGB(0, 0, 0),
+        Color3.fromRGB(18, 0, 0),
+        Color3.fromRGB(30, 0, 0)
+    },
+    background_transparency = 0.1,
+    main_color = Color3.fromRGB(180, 0, 255),
+    min_size = Vector2.new(550, 820),
+    can_resize = true,
+})
+
+
+
+-- TABS
+local mainTab     = window:AddTab("Farm")
+local petsTab     = window:AddTab("Pet Shop")
+local miscTab     = window:AddTab("Misc")
+local killTab     = window:AddTab("Killing")
+local spyTab      = window:AddTab("Spy Stats")
+local calcTab     = window:AddTab("Stats")
+local invTab      = window:AddTab("Inventory")
+local settingsTab = window:AddTab("Settings")
+local infoTab     = window:AddTab("Info")
+
+-- REMOTES & INSTANCES
+local remoterebirths     = ReplicatedStorage.RemotesEvent.RebirthEvent
+local strong             = Player:WaitForChild("leaderstats"):WaitForChild("Strong")
+local machineactive      = ReplicatedStorage.RemotesEvent.MachineActiveFunction
+local MachineActiveEvent = ReplicatedStorage.RemotesEvent.MachineActiveEvent
+local machineuse         = Player:WaitForChild("Machineuse")
+local bechmemp           = workspace:WaitForChild("MachinesFolder"):WaitForChild("Bench Press Muscle Emperor")
+local oceanSquat         = workspace:WaitForChild("MachinesFolder"):WaitForChild("Squat Ocean")
+local spinfu             = ReplicatedStorage.RemotesEvent.SpinFunction
+local SellPetEvent       = ReplicatedStorage.RemotesEvent.SellPetEvent
+local ChestClaimEvent    = ReplicatedStorage.RemotesEvent.ChestClaimEvent
+local HidePetsEvent      = ReplicatedStorage.RemotesEvent.HidePetsEvent
+local PunchEvent         = ReplicatedStorage.RemotesEvent.PunchEvent
+local BodyMovement       = ReplicatedStorage.RemotesEvent.BodyMovement
+local SizeChanged        = ReplicatedStorage.RemotesEvent.SizeChanged
+local eggsFolder         = workspace:WaitForChild("EggsFolder")
+local chestsFolder       = workspace:WaitForChild("ChestsFolder")
+
+-- STATE
+local isAuto            = false
+local isAutolift        = false
+local isapin            = false
+local isAutoHatch       = false
+local isAutoSell        = false
+local isAutoChest       = false
+local isAutoPunch       = false
+local isSticking        = false
+local isAutoKillAll     = false
+local isTinyCombo       = false
+local isAutoGlitch      = false
+local isAutoEat         = false
+local isEating          = false
+local lastSpinTime      = 0
+local lastHatchTime     = 0
+local lastChestTime     = 0
+local lastEatTime       = 0
+local liftCooldown      = 0.08
+local lastLiftTime      = 0
+local consecutiveErrors = 0
+local EAT_COOLDOWN      = 2.5
+local SPIN_COOLDOWN     = 0.35
+local HATCH_COOLDOWN    = 1.5
+local CHEST_COOLDOWN    = 1.0
+local savedLighting     = {}
+local selectedEggFolder = "Mythic"
+local selectedSellPets  = {}
+local selectedTarget    = nil
+local selectedSpyPlayer = nil
+local hands             = {"RightHand","LeftHand"}
+local handIndex         = 1
+local totalChocoEaten   = 0
+local chocoSessionStart = tick()
+
+local selectedPlayerToSpectate = nil
+local spectating               = false
+local currentTargetConnection  = nil
+local camera                   = workspace.CurrentCamera
+
+-- DATA
+local CHESTS = {
+    {name="Big Chest",     pos=Vector3.new(2,5,132)},
+    {name="Chest",         pos=Vector3.new(13,6,-198)},
+    {name="Legend Chest",  pos=Vector3.new(-188,2,458)},
+    {name="Stone Chest",   pos=Vector3.new(-13,5,4490)},
+    {name="Frost Chest",   pos=Vector3.new(-3089,5,179)},
+    {name="Master Chest",  pos=Vector3.new(5839,3,73)},
+    {name="Emperor Chest", pos=Vector3.new(2787,8,197)},
+    {name="Ocean Chest",   pos=Vector3.new(-5792,8,49)},
+}
+local ISLANDS = {
+    {name="Main",               pos=Vector3.new(0,5,0)},
+    {name="Stone Realm",        pos=Vector3.new(68,13,4463)},
+    {name="Frost",              pos=Vector3.new(-2856,14,176)},
+    {name="The Muscle Emperor", pos=Vector3.new(2542,14,211)},
+    {name="Folder Island",      pos=Vector3.new(5428,12,215)},
+    {name="Ocean",              pos=Vector3.new(-5812,13,-93)},
+}
+local EGG_DATA = {
+    {label="Common  (1K)",    folder="Common",    pets={"Sprout","Whisker","Fangor","Fox","RageSpike"}},
+    {label="Rare  (3K)",      folder="Rare",      pets={"Bubbles","SparkPup","Hippopotamus","ShadowBun","FrostKit"}},
+    {label="Epic  (20K)",     folder="Epic",      pets={"Captain","Tiger","TigEye","Dino","NerthEye"}},
+    {label="Legendary (75K)", folder="Legendary", pets={"Dragon","Farmer","Military","Mighty Bull","Pyroclaw"}},
+    {label="Mythic  (500K)",  folder="Mythic",    pets={"Violet Fury","Leviathos","Abyss Titan","Ragehorn","Space Dragon","RedHorn"}},
+}
+local labelToFolder = {}
+for _, d in ipairs(EGG_DATA) do labelToFolder[d.label] = d.folder end
+
+-- HELPERS
+local function getEggPrompt(folderName)
+    local ok, result = pcall(function()
+        return eggsFolder:WaitForChild(folderName,5):WaitForChild("EggsModel",5):WaitForChild("mesh_2",5):WaitForChild("VisiblePrompt",5)
+    end)
+    if ok and result then return result end
+end
+local function getPetsMenu()
+    local ok, result = pcall(function()
+        return Player.PlayerGui:WaitForChild("gamegui",5):WaitForChild("petsMenu",5):WaitForChild("pets_item",5)
+    end)
+    if ok then return result end
+end
+local function teleportToEgg(folderName)
+    pcall(function()
+        local root = Player.Character and Player.Character:FindFirstChild("HumanoidRootPart")
+        local camMove = eggsFolder:FindFirstChild(folderName):FindFirstChild("EggsModel"):FindFirstChild("CameraMove")
+        if root and camMove then root.CFrame = camMove.CFrame + Vector3.new(0,0,5) end
+    end)
+end
+local function teleportTo(pos)
+    pcall(function()
+        local root = Player.Character and Player.Character:FindFirstChild("HumanoidRootPart")
+        if root then root.CFrame = CFrame.new(pos + Vector3.new(0,5,0)) end
+    end)
+end
+local function setCharSize(size)
+    pcall(function() SizeChanged:FireServer(size) end)
+    pcall(function()
+        local char = Player.Character
+        if not char then return end
+        local hum = char:FindFirstChildOfClass("Humanoid")
+        if hum then
+            hum.BodyDepthScale.Value  = size
+            hum.BodyHeightScale.Value = size
+            hum.BodyWidthScale.Value  = size
+            hum.HeadScale.Value       = size
+        end
+    end)
+end
+local function AutoEquipPunch()
+    local char = Player.Character
+    if not char then return end
+    local hum = char:FindFirstChild("Humanoid")
+    if not hum then return end
+    for _, obj in pairs(char:GetChildren()) do
+        if obj:IsA("Tool") then
+            local n = obj.Name:lower()
+            if n:find("punch") or n:find("glove") or n:find("fist") or n:find("hand") or n:find("gauntlet") then return end
+        end
+    end
+    local bp = Player:FindFirstChild("Backpack")
+    if bp then
+        for _, tool in pairs(bp:GetChildren()) do
+            if tool:IsA("Tool") then
+                local n = tool.Name:lower()
+                if n:find("punch") or n:find("glove") or n:find("fist") or n:find("hand") or n:find("gauntlet") then
+                    pcall(function() hum:EquipTool(tool) end) return
+                end
+            end
+        end
+        local ft = bp:FindFirstChildOfClass("Tool")
+        if ft then pcall(function() hum:EquipTool(ft) end) end
+    end
+end
+task.spawn(function() task.wait(2) AutoEquipPunch() end)
+Player.CharacterAdded:Connect(function(char)
+    task.wait(2) AutoEquipPunch()
+    if isTinyCombo then task.wait(0.5) setCharSize(0.001) end
+end)
+local function getPunchCFrame(targetPlayer)
+    local result = nil
+    pcall(function()
+        local tc = targetPlayer.Character
+        if not tc then return end
+        local tRoot = tc:FindFirstChild("HumanoidRootPart")
+        if not tRoot then return end
+        local hrpSize = tRoot.Size
+        local offsetZ = hrpSize.X <= 0.5 and 0.2 or hrpSize.X >= 5 and 1.5 or 1.0
+        local minY, maxY = math.huge, -math.huge
+        for _, part in pairs(tc:GetDescendants()) do
+            if part:IsA("BasePart") and part.Transparency < 1 and part.Name ~= "lookTO" then
+                pcall(function()
+                    minY = math.min(minY, part.Position.Y - part.Size.Y/2)
+                    maxY = math.max(maxY, part.Position.Y + part.Size.Y/2)
+                end)
+            end
+        end
+        local centerY = (minY == math.huge) and tRoot.Position.Y or (maxY+minY)/2
+        local vel = tRoot.AssemblyLinearVelocity
+        local pp = tRoot.Position + Vector3.new(vel.X*0.083, 0, vel.Z*0.083)
+        local lookTO = tc:FindFirstChild("lookTO")
+        if lookTO then
+            local dir = Vector3.new(lookTO.Position.X-tRoot.Position.X, 0, lookTO.Position.Z-tRoot.Position.Z)
+            if dir.Magnitude > 0.01 then
+                dir = dir.Unit
+                result = CFrame.new(pp.X+dir.X*offsetZ, centerY, pp.Z+dir.Z*offsetZ) * CFrame.Angles(0, math.atan2(-dir.X,-dir.Z), 0)
+                return
+            end
+        end
+        result = CFrame.new(pp.X+tRoot.CFrame.LookVector.X*-offsetZ, centerY, pp.Z+tRoot.CFrame.LookVector.Z*-offsetZ) * CFrame.Angles(0, math.atan2(-tRoot.CFrame.LookVector.X, tRoot.CFrame.LookVector.Z), 0)
+    end)
+    return result
+end
+local function updateSpectateTarget(player)
+    if currentTargetConnection then currentTargetConnection:Disconnect() end
+    if player and player.Character then
+        local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
+        if humanoid then
+            camera.CameraSubject = humanoid
+            currentTargetConnection = player.CharacterAdded:Connect(function(newChar)
+                task.wait(0.2)
+                local newHumanoid = newChar:FindFirstChildOfClass("Humanoid")
+                if newHumanoid then camera.CameraSubject = newHumanoid end
+            end)
+        end
+    end
+end
+local function addSeparator(tab)
+    local sep = tab:AddLabel("────────────────────")
+    sep.TextColor3 = Color3.fromRGB(60,10,10)
+    sep.TextSize = 10
+    sep.TextXAlignment = Enum.TextXAlignment.Center
+    sep.Size = UDim2.new(1,0,0,12)
+    sep.TextTransparency = 0.4
+    return sep
+end
+
+-- FARM TAB
+mainTab:AddSwitch("Auto Rebirth", function(state)
+    isAuto = state
+    if isAuto then pcall(function() remoterebirths:FireServer() end) end
+end)
+strong.Changed:Connect(function()
+    if isAuto then pcall(function() remoterebirths:FireServer() end) end
+end)
+mainTab:AddSwitch("Auto Strength",   function(state) isAutolift   = state end)
+mainTab:AddSwitch("Auto Glitch",     function(state) isAutoGlitch = state end)
+mainTab:AddSwitch("Auto Spin Wheel", function(state) isapin        = state end)
+mainTab:AddSwitch("Anti Afk", function(state)
+    if state then
+        if antiAFKConnection then antiAFKConnection:Disconnect() end
+        antiAFKConnection = Player.Idled:Connect(function()
+            VirtualUser:CaptureController()
+            VirtualUser:ClickButton2(Vector2.new())
+        end)
+    else
+        if antiAFKConnection then antiAFKConnection:Disconnect() antiAFKConnection = nil end
+    end
+end)
+mainTab:AddSwitch("Anti Lag [BLACK SCREEN]", function(state)
+    if state then
+        pcall(function()
+            local L = game:GetService("Lighting")
+            savedLighting.GlobalShadows  = L.GlobalShadows
+            savedLighting.Brightness     = L.Brightness
+            savedLighting.FogEnd         = L.FogEnd
+            savedLighting.Ambient        = L.Ambient
+            savedLighting.OutdoorAmbient = L.OutdoorAmbient
+            L.GlobalShadows = false L.Brightness = 0 L.FogEnd = 9e9
+            L.Ambient = Color3.fromRGB(0,0,0) L.OutdoorAmbient = Color3.fromRGB(0,0,0)
+            for _, v in ipairs(L:GetChildren()) do
+                if v:IsA("BlurEffect") or v:IsA("SunRaysEffect") or v:IsA("ColorCorrectionEffect")
+                or v:IsA("BloomEffect") or v:IsA("DepthOfFieldEffect") or v:IsA("Atmosphere") then
+                    v.Enabled = false
+                end
+            end
+        end)
+        pcall(function() settings().Rendering.QualityLevel = 1 end)
+    else
+        pcall(function()
+            local L = game:GetService("Lighting")
+            L.GlobalShadows  = savedLighting.GlobalShadows  or true
+            L.Brightness     = savedLighting.Brightness     or 2
+            L.FogEnd         = savedLighting.FogEnd         or 100000
+            L.Ambient        = savedLighting.Ambient        or Color3.fromRGB(70,70,70)
+            L.OutdoorAmbient = savedLighting.OutdoorAmbient or Color3.fromRGB(70,70,70)
+            for _, v in ipairs(L:GetChildren()) do
+                if v:IsA("BlurEffect") or v:IsA("SunRaysEffect") or v:IsA("ColorCorrectionEffect")
+                or v:IsA("BloomEffect") or v:IsA("DepthOfFieldEffect") or v:IsA("Atmosphere") then
+                    v.Enabled = true
+                end
+            end
+        end)
+        pcall(function() settings().Rendering.QualityLevel = 10 end)
+    end
+end)
+
+-- PET SHOP TAB
+local autoHatchLabel = petsTab:AddLabel("AUTO HATCH")
+autoHatchLabel.Font = Enum.Font.Bodoni autoHatchLabel.TextSize = 25
+local eggDropdown = petsTab:AddDropdown("Select Egg", function(selected)
+    local folder = labelToFolder[selected]
+    if folder then selectedEggFolder = folder teleportToEgg(folder) end
+end)
+for _, d in ipairs(EGG_DATA) do eggDropdown:Add(d.label) end
+petsTab:AddSwitch("Auto Hatch", function(state)
+    isAutoHatch = state
+    if state then teleportToEgg(selectedEggFolder) end
+end)
+local autoSellLabel = petsTab:AddLabel("AUTO SELL")
+autoSellLabel.Font = Enum.Font.Bodoni autoSellLabel.TextSize = 25
+local rarityGroups = {
+    {label="COMMON EGG",idx=1},{label="RARE EGG",idx=2},{label="EPIC EGG",idx=3},
+    {label="LEGENDARY EGG",idx=4},{label="MYTHIC EGG",idx=5},
+}
+for _, grp in ipairs(rarityGroups) do
+    petsTab:AddLabel(grp.label)
+    for _, petName in ipairs(EGG_DATA[grp.idx].pets) do
+        local pn = petName
+        petsTab:AddSwitch("SELL "..pn, function(state) selectedSellPets[pn] = state or nil end)
+    end
+end
+petsTab:AddSwitch("Auto Sell", function(state) isAutoSell = state end)
+
+-- MISC TAB
+local autoClaimLabel = miscTab:AddLabel("AUTO CLAIM CHEST")
+autoClaimLabel.Font = Enum.Font.Bodoni autoClaimLabel.TextSize = 20
+miscTab:AddSwitch("Auto Claim All Chest", function(state) isAutoChest = state end)
+local hideshowLabel = miscTab:AddLabel("HIDE & SHOW PETS")
+hideshowLabel.Font = Enum.Font.Bodoni hideshowLabel.TextSize = 20
+miscTab:AddButton("Hide Pets", function() pcall(function() HidePetsEvent:FireServer(true)  end) end)
+miscTab:AddButton("Show Pets", function() pcall(function() HidePetsEvent:FireServer(false) end) end)
+local teleportIslandsLabel = miscTab:AddLabel("TELEPORT ISLANDS")
+teleportIslandsLabel.Font = Enum.Font.Bodoni teleportIslandsLabel.TextSize = 20
+local islandFolder = miscTab:AddFolder("ISLANDS")
+for _, island in ipairs(ISLANDS) do
+    local pos = island.pos
+    islandFolder:AddButton(island.name, function() teleportTo(pos) end)
+end
+local teleportChestsLabel = miscTab:AddLabel("TELEPORT CHESTS")
+teleportChestsLabel.Font = Enum.Font.Bodoni teleportChestsLabel.TextSize = 20
+local chestFolder = miscTab:AddFolder("TELEPORT TO CHEST")
+for _, chest in ipairs(CHESTS) do
+    local pos = chest.pos
+    chestFolder:AddButton("📦 "..chest.name, function() teleportTo(pos) end)
+end
+
+-- KILLING TAB
+killTab:AddButton("STOP TELEPORT", function() isSticking = false end)
+local autoPunchLabel = killTab:AddLabel("AUTO PUNCH")
+autoPunchLabel.Font = Enum.Font.Bodoni autoPunchLabel.TextSize = 20
+killTab:AddSwitch("AUTO PUNCH", function(state) isAutoPunch = state end)
+local autoKillLabel = killTab:AddLabel("AUTO KILL EVERYONE")
+autoKillLabel.Font = Enum.Font.Bodoni autoKillLabel.TextSize = 20
+killTab:AddSwitch("AUTO KILL EVERYONE", function(state) isAutoKillAll = state end)
+local tinyComboLabel = killTab:AddLabel("TINY SIZE COMBO")
+tinyComboLabel.Font = Enum.Font.Bodoni tinyComboLabel.TextSize = 20
+killTab:AddSwitch("Tiny Size Combo", function(state)
+    isTinyCombo = state
+    if state then
+        setCharSize(0.001) isSticking = true isAutoPunch = true
+    else
+        setCharSize(1) isSticking = false isAutoPunch = false
+    end
+end)
+
+local killSpyLabels = {}
+local function clearKillSpy()
+    for _, lbl in pairs(killSpyLabels) do pcall(function() lbl:Destroy() end) end
+    killSpyLabels = {}
+end
+local function showKillPlayerStats(plr)
+    clearKillSpy()
+    local function addStat(text) local lbl = killTab:AddLabel(text) table.insert(killSpyLabels, lbl) end
+    local function getVal(name, folder)
+        local src = folder and plr:FindFirstChild(folder) or plr
+        local v = src and src:FindFirstChild(name)
+        return v and v.Value or nil
+    end
+    pcall(function()
+        addStat("── "..plr.DisplayName.." ──")
+        for _, s in ipairs({
+            {name="Strong",    icon="💪", folder="leaderstats"},
+            {name="Rebirths",  icon="🔄", folder="leaderstats"},
+            {name="Kills",     icon="💀", folder="leaderstats"},
+            {name="Endurance", icon="🛡️", folder=nil},
+            {name="Mobility",  icon="👟", folder=nil},
+        }) do
+            local val = getVal(s.name, s.folder)
+            if val ~= nil then addStat(s.icon.." "..s.name..": "..formatNumber(val)) end
+        end
+    end)
+end
+
+local selectPlayerLabel = killTab:AddLabel("SELECT PLAYER TO KILL")
+selectPlayerLabel.Font = Enum.Font.Bodoni selectPlayerLabel.TextSize = 20
+local playerDropdown = killTab:AddDropdown("Select Player", function(selected)
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr.DisplayName == selected and plr ~= Player then
+            selectedTarget = plr isSticking = true showKillPlayerStats(plr) break
+        end
+    end
+end)
+task.spawn(function()
+    task.wait(2)
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr ~= Player then pcall(function() playerDropdown:Add(plr.DisplayName) end) end
+    end
+end)
+Players.PlayerAdded:Connect(function(plr) task.wait(0.5) pcall(function() playerDropdown:Add(plr.DisplayName) end) end)
+Players.PlayerRemoving:Connect(function(plr)
+    if selectedTarget == plr then selectedTarget = nil isSticking = false clearKillSpy() end
+    pcall(function() playerDropdown:Remove(plr.DisplayName) end)
+end)
+
+local spectateLabel = killTab:AddLabel("SPECTATE PLAYER")
+spectateLabel.Font = Enum.Font.Bodoni spectateLabel.TextSize = 20
+local specdropdown = killTab:AddDropdown("Choose Player", function(selected)
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr.DisplayName == selected then
+            selectedPlayerToSpectate = plr
+            if spectating then updateSpectateTarget(plr) end
+            break
+        end
+    end
+end)
+task.spawn(function()
+    task.wait(2)
+    for _, plr in ipairs(Players:GetPlayers()) do pcall(function() specdropdown:Add(plr.DisplayName) end) end
+end)
+Players.PlayerAdded:Connect(function(plr) task.wait(0.5) pcall(function() specdropdown:Add(plr.DisplayName) end) end)
+Players.PlayerRemoving:Connect(function(plr)
+    if selectedPlayerToSpectate and selectedPlayerToSpectate == plr then selectedPlayerToSpectate = nil end
+    pcall(function() specdropdown:Remove(plr.DisplayName) end)
+end)
+killTab:AddSwitch("Spectate", function(bool)
+    spectating = bool
+    if spectating and selectedPlayerToSpectate then
+        updateSpectateTarget(selectedPlayerToSpectate)
+    else
+        if currentTargetConnection then currentTargetConnection:Disconnect() currentTargetConnection = nil end
+        if Player.Character then
+            local hum = Player.Character:FindFirstChildOfClass("Humanoid")
+            if hum then camera.CameraSubject = hum end
+        end
+    end
+end)
+
+-- SPY STATS TAB
+local spyStatLabels = {}
+local function clearSpyStats()
+    for _, lbl in pairs(spyStatLabels) do pcall(function() lbl:Remove() end) end
+    spyStatLabels = {}
+end
+local function showPlayerStats(plr)
+    clearSpyStats()
+    local function addStat(text) local lbl = spyTab:AddLabel(text) table.insert(spyStatLabels, lbl) end
+    local function getVal(name, folder)
+        local src = folder and plr:FindFirstChild(folder) or plr
+        local v = src and src:FindFirstChild(name)
+        return v and v.Value or nil
+    end
+    pcall(function()
+        addStat("👤 "..plr.DisplayName.." (@"..plr.Name..")")
+        addStat("📱 Device: "..tostring(getVal("Device") or "Unknown"))
+        addStat("👑 Premium: "..tostring(getVal("IsPremium") or false))
+        addStat("🔧 Admin: "..tostring(getVal("IsAdmin") or false))
+        addStat("── STATS ──")
+        for _, s in ipairs({
+            {name="Strong",            icon="💪", folder="leaderstats"},
+            {name="Endurance",         icon="🛡️", folder=nil},
+            {name="Mobility",          icon="👟", folder=nil},
+            {name="Rebirths",          icon="🔄", folder="leaderstats"},
+            {name="Kills",             icon="💀", folder="leaderstats"},
+            {name="Coins",             icon="🪙", folder=nil},
+            {name="Spins",             icon="🎰", folder=nil},
+            {name="MuscleEmperorReps", icon="🏋️", folder=nil},
+            {name="Pet_Storage",       icon="🐾", folder=nil},
+            {name="Donated",           icon="💝", folder=nil},
+        }) do
+            local val = getVal(s.name, s.folder)
+            if val ~= nil then addStat(s.icon.." "..s.name..": "..formatNumber(val)) end
+        end
+        local petsFolder = plr:FindFirstChild("PetsFolder")
+        if petsFolder then
+            local petCount = {}
+            for _, pet in ipairs(petsFolder:GetChildren()) do petCount[pet.Name] = (petCount[pet.Name] or 0) + 1 end
+            local total = 0
+            for _, c in pairs(petCount) do total = total + c end
+            if total > 0 then
+                addStat("── PETS ("..total..") ──")
+                for name, count in pairs(petCount) do addStat("🐾 "..name..(count > 1 and " x"..count or "")) end
+            end
+        end
+    end)
+end
+local spyDropdown = spyTab:AddDropdown("SELECT PLAYER", function(selected)
+    task.spawn(function()
+        task.wait(0.1)
+        for _, plr in ipairs(Players:GetPlayers()) do
+            if plr.DisplayName == selected then selectedSpyPlayer = plr showPlayerStats(plr) break end
+        end
+    end)
+end)
+task.spawn(function()
+    task.wait(2)
+    for _, plr in ipairs(Players:GetPlayers()) do pcall(function() spyDropdown:Add(plr.DisplayName) end) end
+end)
+Players.PlayerAdded:Connect(function(plr) task.wait(0.5) pcall(function() spyDropdown:Add(plr.DisplayName) end) end)
+Players.PlayerRemoving:Connect(function(plr)
+    if selectedSpyPlayer and selectedSpyPlayer == plr then
+        clearSpyStats()
+        local lbl = spyTab:AddLabel("⚠️ "..plr.DisplayName.." left!")
+        table.insert(spyStatLabels, lbl)
+        selectedSpyPlayer = nil
+    end
+    pcall(function() spyDropdown:Remove(plr.DisplayName) end)
+end)
+
+-- STATS TAB
+local rebirthValObj = Player:FindFirstChild("leaderstats") and Player.leaderstats:FindFirstChild("Rebirths")
+local endurValObj = nil
+for _, child in pairs(Player:GetChildren()) do
+    if child.Name == "Endurance" then endurValObj = child break end
+    local e = child:FindFirstChild("Endurance")
+    if e then endurValObj = e break end
+end
+local statsStartTime  = tick()
+local initialStrength = tonumber(strong.Value) or 0
+local initialRebirths = rebirthValObj and (tonumber(rebirthValObj.Value) or 0) or 0
+local initialEndur    = endurValObj   and (tonumber(endurValObj.Value)   or 0) or 0
+local totalStrGained  = 0
+local totalRebGained  = 0
+local totalEndGained  = 0
+local lastStr = initialStrength
+local lastReb = initialRebirths
+local lastEnd = initialEndur
+
+calcTab:AddLabel("━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+local calcHeader = calcTab:AddLabel("CALCULATOR STATS")
+calcHeader.Font = Enum.Font.LuckiestGuy calcHeader.TextSize = 20
+local stopwatchLabel = calcTab:AddLabel("⏱️ Session Time: 0d 0h 0m 0s")
+calcTab:AddLabel("") calcTab:AddLabel("") calcTab:AddLabel("")
+local projStrLabel   = calcTab:AddLabel("💪 Strength:   -") projStrLabel.Font   = Enum.Font.Bodoni projStrLabel.TextSize   = 20
+local projRebLabel   = calcTab:AddLabel("🔄 Rebirths:   -") projRebLabel.Font   = Enum.Font.Bodoni projRebLabel.TextSize   = 20
+local projEndLabel   = calcTab:AddLabel("🛡️ Endurance:  -") projEndLabel.Font   = Enum.Font.Bodoni projEndLabel.TextSize   = 20
+local strengthLabel  = calcTab:AddLabel("💪 Strength:   -") strengthLabel.Font  = Enum.Font.Bodoni strengthLabel.TextSize  = 20
+local rebirthsLabel  = calcTab:AddLabel("🔄 Rebirths:   -") rebirthsLabel.Font  = Enum.Font.Bodoni rebirthsLabel.TextSize  = 20
+local enduranceLabel = calcTab:AddLabel("🛡️ Endurance:  -") enduranceLabel.Font = Enum.Font.Bodoni enduranceLabel.TextSize = 20
+calcTab:AddButton("Reset Session", function()
+    statsStartTime  = tick()
+    initialStrength = tonumber(strong.Value) or 0
+    initialRebirths = rebirthValObj and (tonumber(rebirthValObj.Value) or 0) or 0
+    initialEndur    = endurValObj   and (tonumber(endurValObj.Value)   or 0) or 0
+    totalStrGained  = 0 totalRebGained = 0 totalEndGained = 0
+    lastStr = initialStrength lastReb = initialRebirths lastEnd = initialEndur
+    stopwatchLabel.Text = "⏱️ Session Time: 0d 0h 0m 0s"
+    projStrLabel.Text = "💪 Strength:   -" projRebLabel.Text = "🔄 Rebirths:   -" projEndLabel.Text = "🛡️ Endurance:  -"
+    strengthLabel.Text = "💪 Strength:   -" rebirthsLabel.Text = "🔄 Rebirths:   -" enduranceLabel.Text = "🛡️ Endurance:  -"
+end)
+task.spawn(function()
+    local lastProjected = 0
+    while task.wait(0.2) do
+        local elapsed = tick() - statsStartTime
+        if elapsed >= 1 then
+            local days  = math.floor(elapsed/86400)
+            local hours = math.floor((elapsed%86400)/3600)
+            local mins  = math.floor((elapsed%3600)/60)
+            local secs  = math.floor(elapsed%60)
+            stopwatchLabel.Text = string.format("⏱️ Session Time: %dd %dh %dm %ds", days, hours, mins, secs)
+            local cStr = tonumber(strong.Value) or 0
+            local cReb = rebirthValObj and (tonumber(rebirthValObj.Value) or 0) or 0
+            local cEnd = endurValObj   and (tonumber(endurValObj.Value)   or 0) or 0
+            local dS = cStr-lastStr local dR = cReb-lastReb local dE = cEnd-lastEnd
+            if dS > 0 then totalStrGained = totalStrGained + dS end
+            if dR > 0 then totalRebGained = totalRebGained + dR end
+            if dE > 0 then totalEndGained = totalEndGained + dE end
+            lastStr = cStr lastReb = cReb lastEnd = cEnd
+            strengthLabel.Text  = "💪 Strength:  "..AbbrevNumber(cStr).." | +"..AbbrevNumber(totalStrGained)
+            rebirthsLabel.Text  = "🔄 Rebirths:  "..AbbrevNumber(cReb).." | +"..AbbrevNumber(totalRebGained)
+            enduranceLabel.Text = "🛡️ Endurance: "..AbbrevNumber(cEnd).." | +"..AbbrevNumber(totalEndGained)
+            if tick()-lastProjected >= 3 and elapsed >= 5 then
+                lastProjected = tick()
+                local sSec = totalStrGained/elapsed
+                local rSec = totalRebGained/elapsed
+                local eSec = totalEndGained/elapsed
+                local h,d = 3600,86400
+                projStrLabel.Text = "💪 Strength:  "..AbbrevNumber(math.floor(sSec*h)).."/h | "..AbbrevNumber(math.floor(sSec*d)).."/d"
+                projRebLabel.Text = "🔄 Rebirths:  "..AbbrevNumber(math.floor(rSec*h)).."/h | "..AbbrevNumber(math.floor(rSec*d)).."/d"
+                projEndLabel.Text = "🛡️ Endurance: "..AbbrevNumber(math.floor(eSec*h)).."/h | "..AbbrevNumber(math.floor(eSec*d)).."/d"
+            end
+        end
+    end
+end)
+
+-- INVENTORY TAB
+local invHeader = invTab:AddLabel("AUTO EAT CHOCOLATE")
+invHeader.Font = Enum.Font.LuckiestGuy invHeader.TextSize = 20
+local chocoCountLabel = invTab:AddLabel("🍫 Chocolate: -")
+chocoCountLabel.Font = Enum.Font.Bodoni chocoCountLabel.TextSize = 18
+local chocoEatenLabel = invTab:AddLabel("✅ Eaten this session: 0")
+chocoEatenLabel.Font = Enum.Font.Bodoni chocoEatenLabel.TextSize = 18
+local chocoRateLabel = invTab:AddLabel("⚡ Rate: 0 /min")
+chocoRateLabel.Font = Enum.Font.Bodoni chocoRateLabel.TextSize = 18
+invTab:AddSwitch("Auto Eat Chocolate", function(state) isAutoEat = state end)
+task.spawn(function()
+    while task.wait(0.5) do
+        pcall(function()
+            local count = 0
+            local chocoFolder = Player:FindFirstChild("ChocolatesFolder")
+            if chocoFolder then
+                for _, v in pairs(chocoFolder:GetChildren()) do if v:IsA("Tool") then count = count + 1 end end
+            end
+            local bp = Player:FindFirstChild("Backpack")
+            if bp then
+                for _, v in pairs(bp:GetChildren()) do
+                    if v:IsA("Tool") and string.lower(v.Name):find("chocolate") then count = count + 1 end
+                end
+            end
+            chocoCountLabel.Text = "🍫 Chocolate: "..formatNumber(count)
+            local elapsed = tick() - chocoSessionStart
+            if elapsed > 5 then
+                chocoRateLabel.Text = "⚡ Rate: "..string.format("%.1f", (totalChocoEaten/elapsed)*60).." /min"
+            end
+        end)
+    end
+end)
+task.spawn(function()
+    while true do
+        task.wait(0.1)
+        if isAutoEat and not isEating then
+            local now = tick()
+            if now - lastEatTime >= EAT_COOLDOWN then
+                lastEatTime = now
+                task.spawn(function()
+                    isEating = true
+                    pcall(function()
+                        local char = Player.Character
+                        if not char then isEating = false return end
+                        local hum = char:FindFirstChildOfClass("Humanoid")
+                        if not hum then isEating = false return end
+                        local bp = Player:FindFirstChild("Backpack")
+                        if not bp then isEating = false return end
+                        local choco = nil
+                        for _, tool in pairs(bp:GetChildren()) do
+                            if string.lower(tool.Name):find("chocolate") then choco = tool break end
+                        end
+                        if not choco then
+                            local chocoFolder = Player:FindFirstChild("ChocolatesFolder")
+                            if not chocoFolder then isEating = false return end
+                            local c = chocoFolder:FindFirstChildOfClass("Tool")
+                            if not c then isEating = false return end
+                            c.Parent = bp
+                            task.wait(0.2)
+                            choco = bp:FindFirstChild(c.Name)
+                        end
+                        if not choco then isEating = false return end
+                        hum:EquipTool(choco)
+                        task.wait(0.5)
+                        local equipped = char:FindFirstChild(choco.Name)
+                        if equipped then
+                            equipped:Activate()
+                            ChocolateEatEvent:FireServer(equipped)
+                            task.wait(1.5)
+                            totalChocoEaten = totalChocoEaten + 1
+                            chocoEatenLabel.Text = "✅ Eaten this session: "..totalChocoEaten
+                        end
+                    end)
+                    isEating = false
+                end)
+            end
+        end
+    end
+end)
+
+-- INFO TAB
+local myLabel = infoTab:AddLabel("Muscle Masters")
+myLabel.Font = Enum.Font.LuckiestGuy myLabel.TextSize = 22
+myLabel.TextXAlignment = Enum.TextXAlignment.Center myLabel.Size = UDim2.new(1,0,0,25)
+local devLabel = infoTab:AddLabel("Natoy")
+devLabel.Font = Enum.Font.LuckiestGuy devLabel.TextSize = 20
+devLabel.TextXAlignment = Enum.TextXAlignment.Center devLabel.Size = UDim2.new(1,0,0,25)
+task.spawn(function()
+    local t = 0
+    while task.wait(0.05) do
+        t = t + 0.03
+        local r = math.floor(127+math.sin(t)*127)
+        local g = math.floor(127+math.sin(t+2)*127)
+        local b = math.floor(127+math.sin(t+4)*127)
+        pcall(function() myLabel.TextColor3 = Color3.fromRGB(r,g,b) devLabel.TextColor3 = Color3.fromRGB(r,g,b) end)
+    end
+end)
+local closeFriendsLabel = infoTab:AddLabel(" :")
+closeFriendsLabel.Font = Enum.Font.LuckiestGuy closeFriendsLabel.TextSize = 18
+task.spawn(function()
+    local colors = {
+        Color3.fromRGB(255,0,0), Color3.fromRGB(255,100,0), Color3.fromRGB(255,255,0),
+        Color3.fromRGB(0,255,0), Color3.fromRGB(0,150,255), Color3.fromRGB(150,0,255),
+        Color3.fromRGB(255,0,150),
+    }
+    local i = 1
+    while task.wait(0.3) do
+        pcall(function() closeFriendsLabel.TextColor3 = colors[i] i = (i%#colors)+1 end)
+    end
+end)
+local f2Label = infoTab:AddLabel(" ")
+f2Label.Font = Enum.Font.Bodoni f2Label.TextSize = 18
+task.spawn(function()
+    local hue = 0
+    while task.wait(0.05) do
+        hue = (hue+0.005)%1
+        pcall(function() f2Label.TextColor3 = Color3.fromHSV(hue,1,1) end)
+    end
+end)
+local headerLabel = infoTab:AddLabel("solos:")
+headerLabel.Font = Enum.Font.Oswald headerLabel.TextSize = 20
+headerLabel.TextXAlignment = Enum.TextXAlignment.Center headerLabel.Size = UDim2.new(1,0,0,20)
+headerLabel.TextColor3 = Color3.fromRGB(180,180,180) headerLabel.TextTransparency = 0.3
+task.spawn(function()
+    while task.wait(0.05) do
+        pcall(function() headerLabel.TextColor3 = Color3.fromRGB(220,0,0) headerLabel.TextTransparency = 0 end)
+        task.wait(0.05)
+        pcall(function() headerLabel.TextColor3 = Color3.fromRGB(120,0,0) headerLabel.TextTransparency = 0.5 end)
+    end
+end)
+addSeparator(infoTab)
+local clan1Label = infoTab:AddLabel("ratbu")
+clan1Label.Font = Enum.Font.Bodoni clan1Label.TextSize = 20
+clan1Label.TextXAlignment = Enum.TextXAlignment.Center clan1Label.Size = UDim2.new(1,0,0,28)
+addSeparator(infoTab)
+local clan2Label = infoTab:AddLabel("Yamehatdog")
+clan2Label.Font = Enum.Font.Bodoni clan2Label.TextSize = 20
+clan2Label.TextXAlignment = Enum.TextXAlignment.Center clan2Label.Size = UDim2.new(1,0,0,28)
+addSeparator(infoTab)
+task.spawn(function()
+    local t = 0
+    local flickerPool = {}
+    for i = 1,200 do flickerPool[i] = math.random() end
+    local fi = 1
+    local stroke1 = Instance.new("UIStroke") stroke1.Thickness = 1.5 stroke1.Parent = clan1Label
+    local stroke2 = Instance.new("UIStroke") stroke2.Thickness = 1.5 stroke2.Parent = clan2Label
+    while task.wait(0.025) do
+        t = t + 0.055 fi = (fi%200)+1
+        local pulse1 = math.abs(math.sin(t*4.5))
+        local r1 = math.floor(160+pulse1*95)
+        local pulse2 = math.abs(math.sin(t*3.2+1.2))
+        local r2 = math.floor(90+pulse2*100)
+        local b2 = math.floor(140+pulse2*100)
+        local heartbeat = math.max(math.abs(math.sin(t*5.8)), math.abs(math.sin(t*5.8+0.25)))
+        local size1 = math.floor(17+heartbeat*5)
+        local size2 = math.floor(18+heartbeat*5)
+        local f1v = flickerPool[fi] > 0.88 and math.random(3,7)*0.1 or 0
+        local f2v = flickerPool[(fi+67)%200+1] > 0.9 and math.random(3,6)*0.1 or 0
+        local shake1 = math.sin(t*22)*1.8
+        local shake2 = math.sin(t*19+1)*1.8
+        pcall(function()
+            clan1Label.TextColor3 = Color3.fromRGB(r1, math.floor(pulse1*15), math.floor(pulse1*8))
+            clan2Label.TextColor3 = Color3.fromRGB(r2, math.floor(pulse2*8), b2)
+            stroke1.Color = Color3.fromRGB(r1,0,0) stroke1.Transparency = 1-pulse1*0.7
+            stroke2.Color = Color3.fromRGB(r2,0,b2) stroke2.Transparency = 1-pulse2*0.7
+            clan1Label.TextSize = size1 clan2Label.TextSize = size2
+            clan1Label.TextTransparency = f1v clan2Label.TextTransparency = f2v
+            clan1Label.Position = UDim2.new(0,shake1,0,0) clan2Label.Position = UDim2.new(0,-shake2,0,0)
+        end)
+    end
+end)
+local devLabel2 = infoTab:AddLabel("Developer: Natoy")
+devLabel2.Font = Enum.Font.PermanentMarker devLabel2.TextSize = 18
+local devLabel3 = infoTab:AddLabel("LF Single Mom")
+devLabel3.Font = Enum.Font.PermanentMarker devLabel3.TextSize = 18
+devLabel3.TextColor3 = Color3.fromRGB(255,255,255)
+addSeparator(infoTab)
+local taglineLabel = infoTab:AddLabel('"Mama mo blue"')
+taglineLabel.Font = Enum.Font.PermanentMarker taglineLabel.TextSize = 16
+taglineLabel.TextXAlignment = Enum.TextXAlignment.Center taglineLabel.Size = UDim2.new(1,0,0,22)
+task.spawn(function()
+    local t = 0
+    while task.wait(0.05) do
+        t = t + 0.02
+        local r = math.floor(180+math.sin(t)*75)
+        local g = math.floor(math.sin(t*0.7)*50)
+        local b = math.floor(200+math.sin(t*1.3)*55)
+        pcall(function()
+            taglineLabel.TextColor3 = Color3.fromRGB(math.clamp(r,0,255), math.clamp(math.abs(g),0,255), math.clamp(b,0,255))
+        end)
+    end
+end)
+task.spawn(function()
+    local quotes = {
+        '"Pasikat ka boi"','"Pasikat ka boi"','" "',
+        '"No Competitions, Just Script Developer"','""','"Fear The Script"',
+    }
+    local qi = 1
+    while true do
+        task.wait(5) qi = (qi%#quotes)+1
+        pcall(function() taglineLabel.Text = quotes[qi] end)
+    end
+end)
+addSeparator(infoTab)
+
+-- BUTTON TEXT COLOR FIX
+task.spawn(function()
+    task.wait(3)
+    local imgui = game.CoreGui:FindFirstChild("imgui")
+    if not imgui then return end
+    while true do
+        task.wait(0.1)
+        pcall(function()
+            for _, v in ipairs(imgui:GetDescendants()) do
+                if v:IsA("TextButton") then
+                    local txt = v.Text or ""
+                    if string.find(txt,"📦") or string.find(txt,"HIDE") or string.find(txt,"SHOW")
+                    or string.find(txt,"ISLANDS") or string.find(txt,"TELEPORT TO CHEST")
+                    or string.find(txt,"Main") or string.find(txt,"Stone Realm")
+                    or string.find(txt,"Frost") or string.find(txt,"Muscle Emperor")
+                    or string.find(txt,"Folder Island") or string.find(txt,"Ocean")
+                    or string.find(txt,"Big Chest") or string.find(txt,"Legend Chest")
+                    or string.find(txt,"Stone Chest") or string.find(txt,"Frost Chest")
+                    or string.find(txt,"Master Chest") or string.find(txt,"Emperor Chest")
+                    or string.find(txt,"Ocean Chest") then
+                        v.TextColor3 = Color3.fromRGB(255,255,255)
+                    end
+                end
+            end
+        end)
+    end
+end)
+
+-- MAIN LOOPS
+task.spawn(function()
+    while true do
+        task.wait(0.01)
+        if selectedTarget and not isAutoKillAll and not isEating then
+            local myRoot = Player.Character and Player.Character:FindFirstChild("HumanoidRootPart")
+            if myRoot then
+                local tc = selectedTarget.Character
+                local tRoot = tc and tc:FindFirstChild("HumanoidRootPart")
+                if tRoot then
+                    if isSticking then
+                        local cf = getPunchCFrame(selectedTarget)
+                        if cf then myRoot.CFrame = cf end
+                    end
+                    if isAutoPunch then
+                        AutoEquipPunch()
+                        pcall(function() BodyMovement:FireServer(-0.9848077297210693) end)
+                        handIndex = (handIndex%#hands)+1
+                        pcall(function() PunchEvent:FireServer(tc, hands[handIndex]) end)
+                    end
+                end
+            end
+        end
+    end
+end)
+task.spawn(function()
+    while true do
+        task.wait(0.01)
+        if isAutoKillAll and not isEating then
+            local myRoot = Player.Character and Player.Character:FindFirstChild("HumanoidRootPart")
+            if myRoot then
+                local targets = {}
+                for _, plr in ipairs(Players:GetPlayers()) do
+                    if plr ~= Player then
+                        local tc = plr.Character
+                        if tc then
+                            local hum = tc:FindFirstChild("Humanoid")
+                            local tRoot = tc:FindFirstChild("HumanoidRootPart")
+                            if hum and hum.Health > 0 and tRoot then table.insert(targets, plr) end
+                        end
+                    end
+                end
+                if #targets == 0 then task.wait(0.5)
+                else
+                    for _, plr in ipairs(targets) do
+                        if not isAutoKillAll or isEating then break end
+                        local tc = plr.Character
+                        if tc then
+                            local hum = tc:FindFirstChild("Humanoid")
+                            local tRoot = tc:FindFirstChild("HumanoidRootPart")
+                            if hum and tRoot then
+                                while isAutoKillAll and not isEating and hum and hum.Health > 0 and tRoot and tRoot.Parent do
+                                    task.wait(0.01)
+                                    local myR = Player.Character and Player.Character:FindFirstChild("HumanoidRootPart")
+                                    if not myR then break end
+                                    local cf = getPunchCFrame(plr)
+                                    if cf then myR.CFrame = cf end
+                                    AutoEquipPunch()
+                                    pcall(function() BodyMovement:FireServer(-0.9848077297210693) end)
+                                    handIndex = (handIndex%#hands)+1
+                                    pcall(function() PunchEvent:FireServer(tc, hands[handIndex]) end)
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+end)
+task.spawn(function()
+    while true do
+        task.wait(0.01)
+        if isTinyCombo and selectedTarget and not isEating then
+            local myRoot = Player.Character and Player.Character:FindFirstChild("HumanoidRootPart")
+            if myRoot then
+                local tc = selectedTarget.Character
+                local tRoot = tc and tc:FindFirstChild("HumanoidRootPart")
+                if tRoot then
+                    myRoot.CFrame = CFrame.new(tRoot.Position)
+                    AutoEquipPunch()
+                    pcall(function() BodyMovement:FireServer(-0.9848077297210693) end)
+                    handIndex = (handIndex%#hands)+1
+                    pcall(function() PunchEvent:FireServer(tc, hands[handIndex]) end)
+                end
+            end
+        end
+    end
+end)
+task.spawn(function()
+    while true do
+        task.wait(0.05)
+        if isapin then
+            local now = tick()
+            if now-lastSpinTime >= SPIN_COOLDOWN then
+                lastSpinTime = now
+                pcall(function() spinfu:InvokeServer() end)
+            end
+        end
+        if isAutolift then
+            local now = tick()
+            if now-lastLiftTime >= liftCooldown then
+                lastLiftTime = now
+                local success = pcall(function()
+                    if machineuse.Value == nil then
+                        task.wait(0.5) machineactive:InvokeServer(bechmemp, true)
+                    else
+                        MachineActiveEvent:FireServer()
+                    end
+                end)
+                if success then
+                    consecutiveErrors = 0
+                    liftCooldown = math.max(0.06, liftCooldown-0.002)
+                else
+                    consecutiveErrors = consecutiveErrors + 1
+                    liftCooldown = math.min(0.5, liftCooldown+(0.05*consecutiveErrors))
+                end
+            end
+        end
+        if isAutoGlitch then
+            if machineuse.Value == nil then
+                task.wait(0.6) pcall(function() machineactive:InvokeServer(oceanSquat, true) end)
+            else
+                pcall(function() MachineActiveEvent:FireServer() end)
+            end
+        end
+        if isAutoHatch then
+            local now = tick()
+            if now-lastHatchTime >= HATCH_COOLDOWN then
+                lastHatchTime = now
+                pcall(function()
+                    local prompt = getEggPrompt(selectedEggFolder)
+                    if prompt then fireproximityprompt(prompt) end
+                end)
+            end
+        end
+        if isAutoSell then
+            local petsItem = getPetsMenu()
+            if petsItem then
+                for _, petFolder in ipairs(petsItem:GetChildren()) do
+                    local petName = petFolder.Name
+                    if selectedSellPets[petName] then
+                        local statFolder = petFolder:FindFirstChild("PetStatFolder")
+                        local sellVal = statFolder and statFolder:FindFirstChild("SellEnable")
+                        if not sellVal or sellVal.Value == true then
+                            pcall(function() SellPetEvent:FireServer(petFolder) end)
+                            task.wait(0.2)
+                        end
+                    end
+                end
+            end
+        end
+        if isAutoChest then
+            local now = tick()
+            if now-lastChestTime >= CHEST_COOLDOWN then
+                lastChestTime = now
+                for _, chest in ipairs(chestsFolder:GetChildren()) do
+                    pcall(function()
+                        local root = Player.Character and Player.Character:FindFirstChild("HumanoidRootPart")
+                        if root and chest:IsA("BasePart") then
+                            root.CFrame = CFrame.new(chest.Position + Vector3.new(0,5,0))
+                            task.wait(0.3)
+                            ChestClaimEvent:FireServer(chest)
+                        end
+                    end)
+                    task.wait(0.3)
+                end
+            end
+        end
+    end
+end)
+
+-- SETTINGS TAB
+local settingsHeader = settingsTab:AddLabel("SET UP UI SETTINGS YOU WANT")
+settingsHeader.Font = Enum.Font.LuckiestGuy settingsHeader.TextSize = 20
+
+local liftHeader = settingsTab:AddLabel("AUTO STRENGTH SPEED")
+liftHeader.Font = Enum.Font.Bodoni liftHeader.TextSize = 18
+local liftSpeedOptions = {"Safe (0.3s)","Balanced (0.15s)","Fast (0.1s)","Max (0.06s)"}
+local liftSpeedValues  = {0.30, 0.15, 0.10, 0.06}
+local liftSpeedDropdown = settingsTab:AddDropdown("Lift Speed", function(selected)
+    for i, lbl in ipairs(liftSpeedOptions) do
+        if lbl == selected then liftCooldown = liftSpeedValues[i] consecutiveErrors = 0 break end
+    end
+end)
+for _, lbl in ipairs(liftSpeedOptions) do liftSpeedDropdown:Add(lbl) end
+
+local transHeader = settingsTab:AddLabel("BACKGROUND TRANSPARENCY")
+transHeader.Font = Enum.Font.Bodoni transHeader.TextSize = 18
+local transOptions = {"0.0 (Solid)","0.1 (Default)","0.2","0.3","0.5 (Half)","0.8","0.95 (Clear)"}
+local transValues  = {0.0, 0.1, 0.2, 0.3, 0.5, 0.8, 0.95}
+local transDropdown = settingsTab:AddDropdown("Transparency", function(selected)
+    for i, lbl in ipairs(transOptions) do
+        if lbl == selected then
+            pcall(function()
+                windowFrame.ImageTransparency = transValues[i]
+                local bar = windowFrame:FindFirstChild("Bar")
+                if bar then bar.BackgroundTransparency = transValues[i] end
+                local tabSel = windowFrame:FindFirstChild("TabSelection")
+                if tabSel then tabSel.ImageTransparency = math.min(0.4+transValues[i], 0.95) end
+                for _, v in pairs(windowFrame:GetDescendants()) do
+                    pcall(function()
+                        if v:IsA("ImageLabel") and v.Name == "TextButton_Roundify_4px" then
+                            if v.Parent and v.Parent.Name ~= "TabButton" then v.ImageTransparency = transValues[i] end
+                        end
+                        if v:IsA("ImageButton") and v.Name == "Box" then v.ImageTransparency = transValues[i] end
+                    end)
+                end
+            end)
+            break
+        end
+    end
+end)
+for _, lbl in ipairs(transOptions) do transDropdown:Add(lbl) end
+
+local colorHeader = settingsTab:AddLabel("MAIN COLOR THEME")
+colorHeader.Font = Enum.Font.Bodoni colorHeader.TextSize = 18
+local colorOptions = {
+    {name="Purple (Default)", colors={Color3.fromRGB(10,0,40),  Color3.fromRGB(60,0,120),  Color3.fromRGB(120,0,180), Color3.fromRGB(180,0,255), Color3.fromRGB(255,50,180)}},
+    {name="Red",              colors={Color3.fromRGB(40,0,0),   Color3.fromRGB(120,0,0),   Color3.fromRGB(200,0,0),   Color3.fromRGB(255,50,50), Color3.fromRGB(255,100,100)}},
+    {name="Blue",             colors={Color3.fromRGB(0,0,40),   Color3.fromRGB(0,20,120),  Color3.fromRGB(0,60,200),  Color3.fromRGB(0,100,255), Color3.fromRGB(50,150,255)}},
+    {name="Green",            colors={Color3.fromRGB(0,20,0),   Color3.fromRGB(0,60,0),    Color3.fromRGB(0,120,40),  Color3.fromRGB(0,200,80),  Color3.fromRGB(50,255,120)}},
+    {name="Orange",           colors={Color3.fromRGB(40,10,0),  Color3.fromRGB(120,40,0),  Color3.fromRGB(200,80,0),  Color3.fromRGB(255,120,0), Color3.fromRGB(255,180,50)}},
+    {name="Pink",             colors={Color3.fromRGB(40,0,20),  Color3.fromRGB(120,0,60),  Color3.fromRGB(200,0,100), Color3.fromRGB(255,50,150),Color3.fromRGB(255,100,200)}},
+    {name="Gold",             colors={Color3.fromRGB(30,20,0),  Color3.fromRGB(100,70,0),  Color3.fromRGB(180,130,0), Color3.fromRGB(220,180,0), Color3.fromRGB(255,215,0)}},
+    {name="Cyan",             colors={Color3.fromRGB(0,20,30),  Color3.fromRGB(0,80,100),  Color3.fromRGB(0,150,180), Color3.fromRGB(0,210,240), Color3.fromRGB(50,240,255)}},
+}
+local function applyGradient(element, colorList)
+    local grad = element:FindFirstChildOfClass("UIGradient")
+    if not grad then grad = Instance.new("UIGradient") grad.Parent = element end
+    grad.Rotation = 45
+    if #colorList >= 3 then
+        grad.Color = ColorSequence.new({
+            ColorSequenceKeypoint.new(0,   colorList[1]),
+            ColorSequenceKeypoint.new(0.5, colorList[3]),
+            ColorSequenceKeypoint.new(1,   colorList[5] or colorList[#colorList])
+        })
+    elseif #colorList == 2 then
+        grad.Color = ColorSequence.new({ColorSequenceKeypoint.new(0,colorList[1]),ColorSequenceKeypoint.new(1,colorList[2])})
+    else
+        grad.Color = ColorSequence.new(colorList[1])
+    end
+    if element:IsA("ImageLabel") or element:IsA("ImageButton") then
+        element.ImageColor3 = Color3.new(1,1,1)
+    else
+        element.BackgroundColor3 = Color3.new(1,1,1)
+    end
+end
+local colorDropdown = settingsTab:AddDropdown("Main Color", function(selected)
+    for _, opt in ipairs(colorOptions) do
+        if opt.name == selected then
+            pcall(function()
+                for _, v in pairs(windowFrame:GetDescendants()) do
+                    pcall(function()
+                        if v:IsA("Frame") and v.Name == "Bar" then applyGradient(v, opt.colors) end
+                        if v:IsA("ImageLabel") and v.Name == "Window" then
+                            applyGradient(v, {opt.colors[1], opt.colors[3], opt.colors[5] or opt.colors[#opt.colors]})
+                        end
+                        if v:IsA("ImageLabel") and v.Name == "TabSelection" then applyGradient(v, opt.colors) end
+                        if v:IsA("ImageLabel") and v.Name == "TextButton_Roundify_4px" then
+                            if v.Parent and v.Parent.Name ~= "TabButton" then applyGradient(v, {opt.colors[1], opt.colors[3]}) end
+                        end
+                        if v:IsA("ImageButton") and v.Name == "Box" then applyGradient(v, {opt.colors[1], opt.colors[2]}) end
+                    end)
+                end
+            end)
+            break
+        end
+    end
+end)
+for _, opt in ipairs(colorOptions) do colorDropdown:Add(opt.name) end
+
+local wmHeader = settingsTab:AddLabel("WATERMARK")
+wmHeader.Font = Enum.Font.Bodoni wmHeader.TextSize = 18
+local watermark = nil
+settingsTab:AddSwitch("Show Watermark", function(state)
+    if state then
+        if watermark then return end
+        pcall(function()
+            local gui = Instance.new("ScreenGui")
+            gui.Name = "K13Watermark" gui.ResetOnSpawn = false gui.DisplayOrder = 999 gui.Parent = Player.PlayerGui
+            local frame = Instance.new("Frame")
+            frame.Size = UDim2.new(0,220,0,28) frame.Position = UDim2.new(0,8,0,8)
+            frame.BackgroundColor3 = Color3.fromRGB(10,0,20) frame.BackgroundTransparency = 0.3
+            frame.BorderSizePixel = 0 frame.Parent = gui
+            local corner = Instance.new("UICorner") corner.CornerRadius = UDim.new(0,6) corner.Parent = frame
+            local stroke = Instance.new("UIStroke") stroke.Color = Color3.fromRGB(180,0,255) stroke.Thickness = 1.2 stroke.Parent = frame
+            local label = Instance.new("TextLabel")
+            label.Size = UDim2.new(1,0,1,0) label.BackgroundTransparency = 1
+            label.Text = "PRM | Muscle Masters" label.Font = Enum.Font.PermanentMarker
+            label.TextSize = 13 label.TextColor3 = Color3.fromRGB(200,100,255) label.Parent = frame
+            watermark = gui
+            task.spawn(function()
+                local hue = 0
+                while watermark and watermark.Parent do
+                    hue = (hue+0.004)%1
+                    pcall(function() label.TextColor3 = Color3.fromHSV(hue,1,1) stroke.Color = Color3.fromHSV(hue,1,1) end)
+                    task.wait(0.05)
+                end
+            end)
+        end)
+    else
+        if watermark then pcall(function() watermark:Destroy() end) watermark = nil end
+    end
+end)
+
+local resetHeader = settingsTab:AddLabel("RESET")
+resetHeader.Font = Enum.Font.Bodoni resetHeader.TextSize = 18
+settingsTab:AddButton("Reset All Settings", function()
+    pcall(function()
+        windowFrame.ImageTransparency = 0.1
+        local bar = windowFrame:FindFirstChild("Bar")
+        if bar then bar.BackgroundTransparency = 0 end
+        local tabSel = windowFrame:FindFirstChild("TabSelection")
+        if tabSel then tabSel.ImageTransparency = 0.4 end
+        for _, v in pairs(windowFrame:GetDescendants()) do
+            pcall(function()
+                if v:IsA("ImageLabel") and v.Name == "TextButton_Roundify_4px" then
+                    if v.Parent and v.Parent.Name ~= "TabButton" then v.ImageTransparency = 0 end
+                end
+                if v:IsA("ImageButton") and v.Name == "Box" then v.ImageTransparency = 0.1 end
+            end)
+        end
+        for _, v in pairs(windowFrame:GetDescendants()) do
+            pcall(function()
+                if v:IsA("Frame") and v.Name == "Bar" then
+                    applyGradient(v, {Color3.fromRGB(10,0,40),Color3.fromRGB(60,0,120),Color3.fromRGB(120,0,180),Color3.fromRGB(180,0,255),Color3.fromRGB(255,50,180)})
+                end
+                if v:IsA("ImageLabel") and v.Name == "TextButton_Roundify_4px" then
+                    if v.Parent and v.Parent.Name ~= "TabButton" then
+                        applyGradient(v, {Color3.fromRGB(10,0,40), Color3.fromRGB(120,0,180)})
+                    end
+                end
+                if v:IsA("ImageButton") and v.Name == "Box" then
+                    applyGradient(v, {Color3.fromRGB(10,0,40), Color3.fromRGB(60,0,120)})
+                end
+            end)
+        end
+        if watermark then watermark:Destroy() watermark = nil end
+    end)
+end)
+
+-- RAINBOW MODE ULTRA MAX
+local rainbowHeader = settingsTab:AddLabel("✨ RAINBOW MODE ✨")
+rainbowHeader.Font = Enum.Font.LuckiestGuy rainbowHeader.TextSize = 22
+
+local isRainbow       = false
+local rainbowSpeed    = 0.003
+local rainbowRotSpeed = 20
+local rainbowPulse    = true
+local rainbowStroke   = true
+local rainbowBounce   = false
+
+local shimmerActive   = false
+local shimmerTimer    = 0
+local shimmerDuration = 0
+local shimmerTarget   = nil
+
+settingsTab:AddSwitch("Rainbow Gui", function(state)
+    isRainbow = state
+    if state then
+        task.spawn(function()
+            local hue    = 0
+            local pulseT = 0
+            local rotT   = 0
+            local satT   = 0
+            local bounceT = 0
+
+            -- HUE SPLITS per element
+            local HUE_BAR = 0.00
+            local HUE_TAB = 0.18
+            local HUE_WIN = 0.36
+            local HUE_BTN = 0.54
+            local HUE_BOX = 0.72
+
+            while isRainbow do
+                hue     = (hue    + rainbowSpeed) % 1
+                pulseT  = pulseT  + 0.04
+                rotT    = rotT    + 0.04
+                satT    = satT    + 0.025
+                bounceT = bounceT + 0.04
+
+                -- DEEP BREATHING
+                local breathe    = rainbowPulse and (0.45 + math.abs(math.sin(pulseT*0.6))*0.55) or 1
+                local microPulse = 0.85 + math.sin(pulseT*3.5)*0.15
+                local finalBright = math.clamp(breathe * microPulse, 0, 1)
+
+                -- SATURATION PULSE
+                local saturation = 0.75 + math.abs(math.sin(satT*0.8))*0.25
+
+                -- ROTATION (bounce or spin)
+                local function getRot(mult)
+                    if rainbowBounce then
+                        return math.sin(bounceT * mult * 0.4) * 180
+                    else
+                        return (rotT * rainbowRotSpeed * mult) % 360
+                    end
+                end
+                local barRot = getRot(1.00)
+                local tabRot = getRot(0.65)
+                local winRot = getRot(0.35)
+                local btnRot = getRot(0.50)
+
+                -- SHIMMER
+                shimmerTimer = shimmerTimer + 1
+                if not shimmerActive and math.random(1,80) == 1 then
+                    shimmerActive   = true
+                    shimmerTimer    = 0
+                    shimmerDuration = math.random(3,8)
+                    local targets   = {"Bar","TabSelection","TextButton_Roundify_4px","Box"}
+                    shimmerTarget   = targets[math.random(1,#targets)]
+                end
+                local doShimmer = shimmerActive and shimmerTimer <= shimmerDuration
+                if shimmerActive and shimmerTimer > shimmerDuration then
+                    shimmerActive = false shimmerTarget = nil
+                end
+
+                -- COLORS with hue split + saturation pulse
+                local function makeColors(hueOffset)
+                    local h = (hue + hueOffset) % 1
+                    local b = finalBright
+                    return {
+                        Color3.fromHSV(h,               saturation, b),
+                        Color3.fromHSV((h+0.16)%1,      saturation, b),
+                        Color3.fromHSV((h+0.33)%1,      saturation, b),
+                        Color3.fromHSV((h+0.50)%1,      saturation, b),
+                        Color3.fromHSV((h+0.66)%1,      saturation, b),
+                        Color3.fromHSV((h+0.83)%1,      saturation, b),
+                    }
+                end
+                local function makeDarkColors(hueOffset)
+                    local h = (hue + hueOffset) % 1
+                    local dB = math.clamp(finalBright*0.45, 0, 1)
+                    return {
+                        Color3.fromHSV(h,          saturation, math.max(dB,0.07)),
+                        Color3.fromHSV((h+0.33)%1, saturation, math.max(dB,0.10)),
+                        Color3.fromHSV((h+0.66)%1, saturation, math.max(dB,0.13)),
+                    }
+                end
+                local function makeMidColors(hueOffset)
+                    local h = (hue + hueOffset) % 1
+                    local mB = math.clamp(finalBright*0.65, 0, 1)
+                    return {
+                        Color3.fromHSV(h,          saturation, math.max(mB,0.25)),
+                        Color3.fromHSV((h+0.25)%1, saturation, math.max(mB,0.40)),
+                        Color3.fromHSV((h+0.50)%1, saturation, math.max(mB,0.50)),
+                    }
+                end
+
+                local cBar = makeColors(HUE_BAR)
+                local cTab = makeColors(HUE_TAB)
+                local dWin = makeDarkColors(HUE_WIN)
+                local mBtn = makeMidColors(HUE_BTN)
+                local dBox = makeDarkColors(HUE_BOX)
+
+                local strokeColor = Color3.fromHSV((hue+0.5)%1, 1, finalBright)
+                local shimmerColor = Color3.new(1,1,1)
+
+                pcall(function()
+                    for _, v in pairs(windowFrame:GetDescendants()) do
+                        pcall(function()
+                            -- BAR
+                            if v:IsA("Frame") and v.Name == "Bar" then
+                                local grad = v:FindFirstChildOfClass("UIGradient")
+                                if not grad then grad = Instance.new("UIGradient") grad.Parent = v end
+                                grad.Rotation = barRot
+                                if doShimmer and shimmerTarget == "Bar" then
+                                    grad.Color = ColorSequence.new(shimmerColor)
+                                else
+                                    grad.Color = ColorSequence.new({
+                                        ColorSequenceKeypoint.new(0,   cBar[1]),
+                                        ColorSequenceKeypoint.new(0.2, cBar[2]),
+                                        ColorSequenceKeypoint.new(0.4, cBar[3]),
+                                        ColorSequenceKeypoint.new(0.6, cBar[4]),
+                                        ColorSequenceKeypoint.new(0.8, cBar[5]),
+                                        ColorSequenceKeypoint.new(1,   cBar[6]),
+                                    })
+                                end
+                                v.BackgroundColor3 = Color3.new(1,1,1)
+                                if rainbowStroke then
+                                    local st = v:FindFirstChildOfClass("UIStroke")
+                                    if not st then st = Instance.new("UIStroke") st.Thickness = 1.5 st.Parent = v end
+                                    st.Color = strokeColor
+                                    st.Transparency = 1 - math.clamp(finalBright*0.8, 0, 1)
+                                end
+                            end
+                            -- TAB SELECTION
+                            if v:IsA("ImageLabel") and v.Name == "TabSelection" then
+                                local grad = v:FindFirstChildOfClass("UIGradient")
+                                if not grad then grad = Instance.new("UIGradient") grad.Parent = v end
+                                grad.Rotation = tabRot
+                                if doShimmer and shimmerTarget == "TabSelection" then
+                                    grad.Color = ColorSequence.new(shimmerColor)
+                                else
+                                    grad.Color = ColorSequence.new({
+                                        ColorSequenceKeypoint.new(0,   cTab[1]),
+                                        ColorSequenceKeypoint.new(0.2, cTab[2]),
+                                        ColorSequenceKeypoint.new(0.4, cTab[3]),
+                                        ColorSequenceKeypoint.new(0.6, cTab[4]),
+                                        ColorSequenceKeypoint.new(0.8, cTab[5]),
+                                        ColorSequenceKeypoint.new(1,   cTab[6]),
+                                    })
+                                end
+                                v.ImageColor3 = Color3.new(1,1,1)
+                            end
+                            -- WINDOW BACKGROUND
+                            if v:IsA("ImageLabel") and v.Name == "Window" then
+                                local grad = v:FindFirstChildOfClass("UIGradient")
+                                if not grad then grad = Instance.new("UIGradient") grad.Parent = v end
+                                grad.Rotation = winRot
+                                grad.Color = ColorSequence.new({
+                                    ColorSequenceKeypoint.new(0,   dWin[1]),
+                                    ColorSequenceKeypoint.new(0.5, dWin[2]),
+                                    ColorSequenceKeypoint.new(1,   dWin[3]),
+                                })
+                                v.ImageColor3 = Color3.new(1,1,1)
+                            end
+                            -- BUTTONS
+                            if v:IsA("ImageLabel") and v.Name == "TextButton_Roundify_4px" then
+                                local parent = v.Parent
+                                if parent and parent.Name ~= "TabButton" then
+                                    local grad = v:FindFirstChildOfClass("UIGradient")
+                                    if not grad then grad = Instance.new("UIGradient") grad.Parent = v end
+                                    grad.Rotation = btnRot
+                                    if doShimmer and shimmerTarget == "TextButton_Roundify_4px" then
+                                        grad.Color = ColorSequence.new(shimmerColor)
+                                    else
+                                        grad.Color = ColorSequence.new({
+                                            ColorSequenceKeypoint.new(0,   mBtn[1]),
+                                            ColorSequenceKeypoint.new(0.5, mBtn[2]),
+                                            ColorSequenceKeypoint.new(1,   mBtn[3]),
+                                        })
+                                    end
+                                    v.ImageColor3 = Color3.new(1,1,1)
+                                    if rainbowStroke then
+                                        local st = parent:FindFirstChildOfClass("UIStroke")
+                                        if not st then st = Instance.new("UIStroke") st.Thickness = 1.2 st.Parent = parent end
+                                        st.Color = strokeColor
+                                        st.Transparency = 1 - math.clamp(finalBright*0.6, 0, 1)
+                                    end
+                                end
+                            end
+                            -- BOX / TOGGLE
+                            if v:IsA("ImageButton") and v.Name == "Box" then
+                                local grad = v:FindFirstChildOfClass("UIGradient")
+                                if not grad then grad = Instance.new("UIGradient") grad.Parent = v end
+                                grad.Rotation = btnRot
+                                if doShimmer and shimmerTarget == "Box" then
+                                    grad.Color = ColorSequence.new(shimmerColor)
+                                else
+                                    grad.Color = ColorSequence.new({
+                                        ColorSequenceKeypoint.new(0,   dBox[1]),
+                                        ColorSequenceKeypoint.new(0.5, dBox[2]),
+                                        ColorSequenceKeypoint.new(1,   dBox[3]),
+                                    })
+                                end
+                                v.ImageColor3 = Color3.new(1,1,1)
+                            end
+                            -- TAB BUTTON GLOW
+                            if v:IsA("TextButton") and v.Name == "TabButton" then
+                                if rainbowStroke then
+                                    local st = v:FindFirstChildOfClass("UIStroke")
+                                    if not st then st = Instance.new("UIStroke") st.Thickness = 1.0 st.Parent = v end
+                                    st.Color = Color3.fromHSV((hue+HUE_TAB)%1, 1, 1)
+                                    st.Transparency = 1 - math.clamp(breathe*0.5, 0, 1)
+                                end
+                            end
+                        end)
+                    end
+                end)
+                task.wait(0.03)
+            end
+        end)
+    end
+end)
+
+settingsTab:AddSwitch("Rainbow Pulse / Breathing", function(state) rainbowPulse  = state end)
+settingsTab:AddSwitch("Rainbow Stroke Glow",       function(state) rainbowStroke = state end)
+settingsTab:AddSwitch("Gradient Bounce Mode",      function(state) rainbowBounce = state end)
+
+local speedHeader = settingsTab:AddLabel("Rainbow Color Speed")
+speedHeader.Font = Enum.Font.Bodoni speedHeader.TextSize = 16
+local speedOptions = {"Slow","Normal","Fast","Very Fast","Ultra Fast"}
+local speedValues  = {0.001, 0.003, 0.006, 0.012, 0.025}
+local speedDropdown = settingsTab:AddDropdown("Rainbow Speed", function(selected)
+    for i, lbl in ipairs(speedOptions) do if lbl == selected then rainbowSpeed = speedValues[i] break end end
+end)
+for _, lbl in ipairs(speedOptions) do speedDropdown:Add(lbl) end
+
+local rotHeader = settingsTab:AddLabel("Rainbow Rotation Speed")
+rotHeader.Font = Enum.Font.Bodoni rotHeader.TextSize = 16
+local rotOptions = {"No Rotation","Slow Spin","Normal Spin","Fast Spin","Ultra Spin"}
+local rotValues  = {0, 8, 20, 40, 80}
+local rotDropdown = settingsTab:AddDropdown("Rotation Speed", function(selected)
+    for i, lbl in ipairs(rotOptions) do if lbl == selected then rainbowRotSpeed = rotValues[i] break end end
+end)
+for _, lbl in ipairs(rotOptions) do rotDropdown:Add(lbl) end
+
+local sizeHeader = settingsTab:AddLabel("WINDOW SIZE")
+sizeHeader.Font = Enum.Font.Bodoni sizeHeader.TextSize = 18
+local sizeOptions = {"Small (400x280)","Medium (500x380)","Large (600x480)","Extra Large (700x550)"}
+local sizeValues  = {Vector2.new(400,280), Vector2.new(500,380), Vector2.new(600,480), Vector2.new(700,550)}
+local sizeDropdown = settingsTab:AddDropdown("Window Size", function(selected)
+    for i, lbl in ipairs(sizeOptions) do
+        if lbl == selected then
+            pcall(function() windowFrame.Size = UDim2.new(0,sizeValues[i].X,0,sizeValues[i].Y) end)
+            break
+        end
+    end
+end)
+for _, lbl in ipairs(sizeOptions) do sizeDropdown:Add(lbl) end
