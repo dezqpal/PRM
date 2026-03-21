@@ -1,0 +1,102 @@
+-- [[ PRIMO KEY SYSTEM - GENX GLASS FIX ]] --
+local LP = game:GetService("Players").LocalPlayer
+local pGui = LP:WaitForChild("PlayerGui")
+
+-- Burahin ang dati para malinis
+if pGui:FindFirstChild("PrimoGlass") then pGui.PrimoGlass:Destroy() end
+
+local sg = Instance.new("ScreenGui")
+sg.Name = "PrimoGlass"
+sg.Parent = pGui
+sg.ResetOnSpawn = false
+
+-- [[ CONFIGURATION ]] --
+local CORRECT_KEY = "POT" -- Eto ang Local Key mo
+
+-- MAIN WINDOW (Semi-Invisible Glass Style)
+local main = Instance.new("Frame")
+main.Name = "Main"
+main.Parent = sg
+main.Size = UDim2.new(0, 320, 0, 260)
+main.Position = UDim2.new(0.5, -160, 0.5, -130)
+main.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+main.BackgroundTransparency = 0.3 -- Semi-invisible background
+main.BorderSizePixel = 4 -- Kapal ng border na iilaw
+main.Active = true
+main.Draggable = true
+
+-- CENTERED TITLE
+local title = Instance.new("TextLabel")
+title.Parent = main
+title.Size = UDim2.new(1, 0, 0, 50)
+title.Position = UDim2.new(0, 0, 0, 10)
+title.Text = "NATOY KEY SYSTEM"
+title.Font = Enum.Font.GothamBold
+title.TextSize = 20
+title.BackgroundTransparency = 1
+title.TextXAlignment = Enum.TextXAlignment.Center
+
+-- RGB GLOW ANIMATION
+task.spawn(function()
+    while task.wait(0.05) do
+        local color = Color3.fromHSV(tick() % 5 / 5, 0.8, 1)
+        main.BorderColor3 = color
+        title.TextColor3 = color
+    end
+end)
+
+-- ENTER KEY BOX (Semi-Invisible)
+local box = Instance.new("TextBox")
+box.Parent = main
+box.Size = UDim2.new(0.8, 0, 0, 45)
+box.Position = UDim2.new(0.1, 0, 0.35, 0)
+box.PlaceholderText = "Enter Key Here..."
+box.Text = ""
+box.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+box.BackgroundTransparency = 0.5 -- Bahagyang invisible
+box.TextColor3 = Color3.fromRGB(255, 255, 255)
+box.PlaceholderColor3 = Color3.fromRGB(180, 180, 180)
+box.Font = Enum.Font.Gotham
+box.TextSize = 16
+box.BorderSizePixel = 0
+
+-- SUBMIT BUTTON (Semi-Invisible)
+local btn = Instance.new("TextButton")
+btn.Parent = main
+btn.Size = UDim2.new(0.8, 0, 0, 45)
+btn.Position = UDim2.new(0.1, 0, 0.6, 0)
+btn.Text = "SUBMIT"
+btn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+btn.BackgroundTransparency = 0.4 -- Bahagyang invisible
+btn.TextColor3 = Color3.fromRGB(0, 0, 0)
+btn.Font = Enum.Font.GothamBold
+btn.TextSize = 16
+btn.BorderSizePixel = 0
+
+-- FOOTER
+local footer = Instance.new("TextLabel")
+footer.Parent = main
+footer.Size = UDim2.new(1, 0, 0, 30)
+footer.Position = UDim2.new(0, 0, 0.85, 0)
+footer.Text = "Made by Natoy"
+footer.TextColor3 = Color3.fromRGB(200, 200, 200)
+footer.BackgroundTransparency = 1
+footer.TextSize = 12
+
+-- [[ KEY LOGIC ]] --
+btn.MouseButton1Click:Connect(function()
+    if box.Text == CORRECT_KEY then
+        btn.Text = "ACCESS GRANTED"
+        btn.TextColor3 = Color3.fromRGB(0, 255, 0)
+        task.wait(1)
+        sg:Destroy()
+        -- I-load ang script mo
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/dezqpal/PRM/refs/heads/main/mamamoRed "))()
+    else
+        btn.Text = "INVALID KEY!"
+        btn.TextColor3 = Color3.fromRGB(255, 0, 0)
+        task.wait(1)
+        btn.Text = "SUBMIT"
+        btn.TextColor3 = Color3.fromRGB(0, 0, 0)
+    end
+end)
