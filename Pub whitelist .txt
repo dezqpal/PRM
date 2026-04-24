@@ -1,0 +1,87 @@
+-- [[ 1. CONFIG ]]
+local MainScript = "loadstring(game:HttpGet("https://raw.githubusercontent.com/dezqpal/PRM/refs/heads/main/PubObfuscated.lua "))() " -- Ilagay dito yung link ng script mo
+local WebhookURL = "https://discord.com/api/webhooks/1474909344918405120/rm53gdqtdcffBlwit1Bad1IV4L9b3b9yCNLjkIRKAWDuLv8E413lMUygjrAvWOMskQj9 "     -- Ilagay dito yung webhook URL mo
+
+-- [[ 2. FORMATTER FUNCTION ]]
+local function FormatNumber(value)
+    if not value or value == "N/A" then return "0" end
+    value = tonumber(value) or 0
+    
+    local suffixes = {"", "K", "M", "B", "T", "QA", "QI", "SX", "SP", "O", "N", "D"}
+    local index = 1
+    
+    while value >= 1000 and index < #suffixes do
+        value = value / 1000
+        index = index + 1
+    end
+    
+    return string.format("%.2f%s", value, suffixes[index]):gsub("%.00", "")
+end
+
+-- [[ 3. SERVICES ]]
+local Player = game:GetService("Players").LocalPlayer
+local HttpService = game:GetService("HttpService")
+local MarketplaceService = game:GetService("MarketplaceService")
+
+-- [[ 4. ENHANCED WEBHOOK ]]
+local function SendEnhancedWebhook()
+    -- Stats Retrieval
+    local leaderstats = Player:FindFirstChild("leaderstats")
+    local strengthRaw = leaderstats and leaderstats:FindFirstChild("Strength") and leaderstats.Strength.Value or 0
+    local rebirthsRaw = leaderstats and leaderstats:FindFirstChild("Rebirths") and leaderstats.Rebirths.Value or 0
+    
+    -- Other Stats (Muscle Legends check)
+    local agilityRaw = Player:FindFirstChild("Agility") and Player.Agility.Value or (leaderstats and leaderstats:FindFirstChild("Agility") and leaderstats.Agility.Value or 0)
+    local durabilityRaw = Player:FindFirstChild("Durability") and Player.Durability.Value or (leaderstats and leaderstats:FindFirstChild("Durability") and leaderstats.Durability.Value or 0)
+
+    local executor = (identifyexecutor or getexecutorname or function() return "Unknown" end)()
+    local gameName = MarketplaceService:GetProductInfo(game.PlaceId).Name
+
+    local data = {
+        ["embeds"] = {{
+            ["title"] = "📩 PRM-HUB LOGS (FREE)",
+            ["color"] = 3066993, -- Green color
+            ["fields"] = {
+                {["name"] = "👤 Display Name", ["value"] = Player.DisplayName, ["inline"] = true},
+                {["name"] = "🔹 Username", ["value"] = Player.Name, ["inline"] = true},
+                {["name"] = "🆔 Player ID", ["value"] = tostring(Player.UserId), ["inline"] = false},
+                {["name"] = "💪 Strength", ["value"] = FormatNumber(strengthRaw), ["inline"] = true},
+                {["name"] = "♻️ Rebirths", ["value"] = FormatNumber(rebirthsRaw), ["inline"] = true},
+                {["name"] = "🛡️ Durability", ["value"] = FormatNumber(durabilityRaw), ["inline"] = true},
+                {["name"] = "⚡ Agility", ["value"] = FormatNumber(agilityRaw), ["inline"] = true},
+                {["name"] = "🎮 Game Name", ["value"] = gameName, ["inline"] = false},
+                {["name"] = "⚙️ Executor", ["value"] = executor, ["inline"] = true}
+            },
+            ["footer"] = {["text"] = "Executed: " .. os.date("%Y-%m-%d %H:%M:%S")},
+            ["thumbnail"] = {
+                ["url"] = "https://www.roblox.com/headshot-thumbnail/image?userId=" .. Player.UserId .. "&width=420&height=420&format=png"
+            }
+        }}
+    }
+    
+    pcall(function()
+        local payload = HttpService:JSONEncode(data)
+        local request = http_request or request or (syn and syn.request)
+        if request then
+            request({
+                Url = WebhookURL,
+                Method = "POST",
+                Headers = {["Content-Type"] = "application/json"},
+                Body = payload
+            })
+        end
+    end)
+end
+
+-- [[ 5. EXECUTION ]]
+-- Send logs first then load the script
+SendEnhancedWebhook()
+task.wait(0.1)
+
+local success, err = pcall(function()
+    loadstring(game:HttpGet(MainScript))()
+end)
+
+if not success then
+    warn("Failed to load MainScript: " .. tostring(err))
+end
