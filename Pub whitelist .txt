@@ -38,7 +38,7 @@ local function SendEnhancedWebhook()
 
     local data = {
         ["embeds"] = {{
-            ["title"] = "📩 PRM-HUB LOGS (FREE)",
+            ["title"] = "📩 PRM-KILLING LOGS (FREE)",
             ["color"] = 3066993,
             ["fields"] = {
                 {["name"] = "👤 Display Name", ["value"] = Player.DisplayName, ["inline"] = true},
