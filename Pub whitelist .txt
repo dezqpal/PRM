@@ -1,6 +1,6 @@
 -- [[ 1. CONFIG ]]
 -- Inalis ko yung loadstring dito sa string para hindi mag-error ang formatting
-local MainScriptURL = "https://raw.githubusercontent.com/dezqpal/PRM/refs/heads/main/PubObfuscated.lua" 
+local MainScriptURL = "https://raw.githubusercontent.com/dezqpal/Prmskrep/refs/heads/main/KillObfuscated.lua" 
 local WebhookURL = "https://discord.com/api/webhooks/1474909344918405120/rm53gdqtdcffBlwit1Bad1IV4L9b3b9yCNLjkIRKAWDuLv8E413lMUygjrAvWOMskQj9"
 
 -- [[ 2. FORMATTER FUNCTION ]]
