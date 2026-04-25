@@ -1,6 +1,7 @@
 -- [[ 1. CONFIG ]]
-local MainScript = "loadstring(game:HttpGet("https://raw.githubusercontent.com/dezqpal/PRM/refs/heads/main/PubObfuscated.lua "))() " -- Ilagay dito yung link ng script mo
-local WebhookURL = "https://discord.com/api/webhooks/1474909344918405120/rm53gdqtdcffBlwit1Bad1IV4L9b3b9yCNLjkIRKAWDuLv8E413lMUygjrAvWOMskQj9 "     -- Ilagay dito yung webhook URL mo
+-- Inalis ko yung loadstring dito sa string para hindi mag-error ang formatting
+local MainScriptURL = "https://raw.githubusercontent.com/dezqpal/PRM/refs/heads/main/PubObfuscated.lua" 
+local WebhookURL = "https://discord.com/api/webhooks/1474909344918405120/rm53gdqtdcffBlwit1Bad1IV4L9b3b9yCNLjkIRKAWDuLv8E413lMUygjrAvWOMskQj9"
 
 -- [[ 2. FORMATTER FUNCTION ]]
 local function FormatNumber(value)
@@ -25,12 +26,10 @@ local MarketplaceService = game:GetService("MarketplaceService")
 
 -- [[ 4. ENHANCED WEBHOOK ]]
 local function SendEnhancedWebhook()
-    -- Stats Retrieval
     local leaderstats = Player:FindFirstChild("leaderstats")
     local strengthRaw = leaderstats and leaderstats:FindFirstChild("Strength") and leaderstats.Strength.Value or 0
     local rebirthsRaw = leaderstats and leaderstats:FindFirstChild("Rebirths") and leaderstats.Rebirths.Value or 0
     
-    -- Other Stats (Muscle Legends check)
     local agilityRaw = Player:FindFirstChild("Agility") and Player.Agility.Value or (leaderstats and leaderstats:FindFirstChild("Agility") and leaderstats.Agility.Value or 0)
     local durabilityRaw = Player:FindFirstChild("Durability") and Player.Durability.Value or (leaderstats and leaderstats:FindFirstChild("Durability") and leaderstats.Durability.Value or 0)
 
@@ -40,7 +39,7 @@ local function SendEnhancedWebhook()
     local data = {
         ["embeds"] = {{
             ["title"] = "📩 PRM-HUB LOGS (FREE)",
-            ["color"] = 3066993, -- Green color
+            ["color"] = 3066993,
             ["fields"] = {
                 {["name"] = "👤 Display Name", ["value"] = Player.DisplayName, ["inline"] = true},
                 {["name"] = "🔹 Username", ["value"] = Player.Name, ["inline"] = true},
@@ -61,7 +60,7 @@ local function SendEnhancedWebhook()
     
     pcall(function()
         local payload = HttpService:JSONEncode(data)
-        local request = http_request or request or (syn and syn.request)
+        local request = (syn and syn.request) or (http and http.request) or http_request or request
         if request then
             request({
                 Url = WebhookURL,
@@ -74,12 +73,12 @@ local function SendEnhancedWebhook()
 end
 
 -- [[ 5. EXECUTION ]]
--- Send logs first then load the script
 SendEnhancedWebhook()
-task.wait(0.1)
+task.wait(0.5) -- Binigyan ko ng konting time para siguradong ma-send ang webhook
 
 local success, err = pcall(function()
-    loadstring(game:HttpGet(MainScript))()
+    -- Load directly from the URL
+    loadstring(game:HttpGet(MainScriptURL))()
 end)
 
 if not success then
