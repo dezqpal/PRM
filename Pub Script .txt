@@ -18,7 +18,7 @@ local window = library:AddWindow("PRM HuB | PUBLIC SCRIPT - Welcome " .. display
 	background = {Color3.fromRGB(0, 0, 0), Color3.fromRGB(128, 128, 128), Color3.fromRGB(128, 128, 128)},
 	background_transparency = 0.1,
 	main_color = Color3.fromRGB(0, 0, 0),
-	min_size = Vector2.new(520, 620),
+	min_size = Vector2.new(520, 680),
 	can_resize = true
 })
 
