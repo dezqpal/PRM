@@ -20,7 +20,7 @@ local library = loadstring(game:HttpGet("https://raw.githubusercontent.com/dezqp
 
 local window = library:AddWindow(title, {
     main_color = Color3.fromRGB(0, 0, 0),
-    min_size = Vector2.new(420, 380),
+    min_size = Vector2.new(420, 390),
     can_resize = true,
 })
 
