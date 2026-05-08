@@ -16,7 +16,7 @@ local rebirthsStat = leaderstats:WaitForChild("Rebirths")
 
 local title = ("PRM || PRVT SCRIPT - WSP!!!  %s"):format(displayName)
 
-local library = loadstring(game:HttpGet("https://raw.githubusercontent.com/bacsainluis-hub/my-script-/refs/heads/main/Primo%20pangit "))()
+local library = loadstring(game:HttpGet("https://raw.githubusercontent.com/dezqpal/PRM/refs/heads/main/PRM.ui.LUA "))()
 
 local window = library:AddWindow(title, {
     main_color = Color3.fromRGB(0, 0, 0),
