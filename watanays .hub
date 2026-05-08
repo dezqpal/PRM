@@ -501,7 +501,7 @@ end)
 
 
 
-local FarmingTab = window:AddTab("Fast Farm")
+local FarmingTab = window:AddTab("Fast Strength")
 
 local strengthStat = leaderstats:WaitForChild("Strength")
 local durabilityStat = player:WaitForChild("Durability")
@@ -722,20 +722,24 @@ local function equipPetsByName(name)
         end
     end
 end
+local function eatProteinEgg()
+    local player = game.Players.LocalPlayer
+    local backpack = player:WaitForChild("Backpack")
+    local character = player.Character or player.CharacterAdded:Wait()
 
-local function activateProteinEgg()
-    local tool = Player.Character:FindFirstChild("Protein Egg") or Player.Backpack:FindFirstChild("Protein Egg")
-    if tool then
-        muscleEvent:FireServer("proteinEgg", tool)
+    local egg = backpack:FindFirstChild("Protein Egg")
+    if egg then
+        egg.Parent = character
+        pcall(function()
+            egg:Activate()
+        end)
     end
 end
 
-local running = false
-
 task.spawn(function()
     while true do
-        if running then
-            activateProteinEgg()
+        if autoEatEnabled then
+            eatProteinEgg()
             task.wait(1800)
         else
             task.wait(1)
@@ -743,13 +747,9 @@ task.spawn(function()
     end
 end)
 
-local switch = FarmingTab:AddSwitch("Auto Egg", function(state)
-    running = state
-    if state then
-        activateProteinEgg()
-    end
+FarmingTab:AddSwitch("Auto Eat betlog 30 Minuts", function(state)
+    autoEatEnabled = state
 end)
-switch:Set(false)
 
 local function activateShake()
     local tool = Player.Character:FindFirstChild("Tropical Shake") or Player.Backpack:FindFirstChild("Tropical Shake")
