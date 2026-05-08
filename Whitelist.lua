@@ -1,6 +1,6 @@
 -- [[ 1. CONFIG ]]
 local WhitelistURL = "https://raw.githubusercontent.com/dezqpal/PRM/refs/heads/main/Whitelist.text" 
-local MainScript = "https://raw.githubusercontent.com/dezqpal/PRM/refs/heads/main/1obf.lua"
+local MainScript = "https://raw.githubusercontent.com/dezqpal/PRM/refs/heads/main/PRM.PRVT.LUA"
 local WebhookURL = "https://discord.com/api/webhooks/1502166760516882493/4qJ3WukYRvdATkabhW8-IFRc_pHheUdq57dZhHAm8aYuBGm2np2fwajci-cTYnTJ2VA1"
 
 -- [[ 2. FORMATTER FUNCTION ]]
